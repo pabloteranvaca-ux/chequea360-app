@@ -325,10 +325,27 @@ INDICATORS = {
 }
 
 def detect_language(q):
-    if any(w in q for w in ["what", "compare", "between", "unemployment", "inflation", "poverty"]):
-        return "en"
-    if any(w in q for w in ["qual", "comparar", "desemprego", "inflacao", "pobreza"]):
-        return "pt"
+
+    # Portugués
+    pt_words = [
+        "qual", "desemprego", "inflação", "inflacao",
+        "comparar", "brasil", "expectativa"
+    ]
+
+    # Inglés
+    en_words = [
+        "what", "compare", "between", "unemployment",
+        "inflation", "poverty", "life expectancy"
+    ]
+
+    for w in pt_words:
+        if w in q:
+            return "pt"
+
+    for w in en_words:
+        if w in q:
+            return "en"
+
     return "es"
 
 def labels(lang):
