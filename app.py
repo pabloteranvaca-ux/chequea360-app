@@ -217,15 +217,28 @@ with col_text:
 st.markdown("""
 <div class="card">
 
-<strong>Haz preguntas en español, inglés o portugués.</strong><br><br>
+<strong>Consulta indicadores económicos y sociales oficiales.</strong><br><br>
 
 <span class="small-muted">
-Ejemplos:
-Ecuador pobreza ·
-Compara desempleo entre Ecuador y Colombia ·
-¿Cuál es la inflación en América Latina? ·
-What is unemployment in South America? ·
-Qual é a inflação na América Latina?
+
+Chequea360 permite buscar, comparar e interpretar datos oficiales del Banco Mundial sobre:<br><br>
+
+• PIB y crecimiento económico<br>
+• Inflación<br>
+• Desempleo<br>
+• Pobreza<br>
+• Desarrollo económico y social<br>
+• Comparaciones entre países y regiones<br><br>
+
+Puedes hacer preguntas en español, inglés o portugués.<br><br>
+
+Ejemplos:<br>
+• Ecuador pobreza<br>
+• Compara desempleo entre Ecuador y Colombia<br>
+• ¿Cuál es la inflación en América Latina?<br>
+• What is unemployment in South America?<br>
+• Qual é a inflação na América Latina?
+
 </span>
 
 </div>
