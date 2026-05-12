@@ -1,31 +1,110 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
+import requests
 import unicodedata
-from data360_client import fetch_worldbank_data
 
-st.set_page_config(page_title="Chequea360", page_icon="🔎", layout="wide")
+# =========================================================
+# CONFIG
+# =========================================================
+
+st.set_page_config(
+    page_title="Chequea360",
+    page_icon="🔎",
+    layout="wide"
+)
+
+# =========================================================
+# HELPERS
+# =========================================================
 
 def clean_text(text):
     text = text.lower().strip()
     text = unicodedata.normalize("NFD", text)
-    text = "".join(char for char in text if unicodedata.category(char) != "Mn")
+    text = "".join(
+        c for c in text
+        if unicodedata.category(c) != "Mn"
+    )
     return text
+
+@st.cache_data(ttl=3600)
+def fetch_worldbank_data(country_code, indicator_code):
+
+    url = f"https://api.worldbank.org/v2/country/{country_code}/indicator/{indicator_code}"
+
+    params = {
+        "format": "json",
+        "per_page": 100
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=20)
+
+        if response.status_code != 200:
+            return pd.DataFrame()
+
+        data = response.json()
+
+        if not isinstance(data, list) or len(data) < 2:
+            return pd.DataFrame()
+
+        rows = []
+
+        for item in data[1]:
+            if item.get("value") is not None:
+
+                rows.append({
+                    "year": int(item.get("date")),
+                    "value": float(item.get("value"))
+                })
+
+        df = pd.DataFrame(rows)
+
+        if df.empty:
+            return df
+
+        return df.sort_values("year")
+
+    except Exception:
+        return pd.DataFrame()
+
+# =========================================================
+# DESIGN
+# =========================================================
 
 st.markdown("""
 <style>
-.main { background-color: #FAF7F2; }
-.block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 1150px; }
-.header-box {
-    background: linear-gradient(135deg, #142B6F 0%, #1C3F95 100%);
-    padding: 2rem;
-    border-radius: 20px;
-    margin-bottom: 1.5rem;
-    color: white;
-    box-shadow: 0 8px 24px rgba(20, 43, 111, 0.18);
+
+.main {
+    background-color: #FAF7F2;
 }
-.header-title { font-size: 3rem; font-weight: 900; color: #F6A300; }
-.header-subtitle { font-size: 1.05rem; color: white; opacity: 0.95; }
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    max-width: 1200px;
+}
+
+.header-box {
+    background: linear-gradient(135deg, #142B6F 0%, #1D3F95 100%);
+    padding: 2rem;
+    border-radius: 24px;
+    color: white;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 24px rgba(20,43,111,0.18);
+}
+
+.header-title {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #F6A300;
+}
+
+.header-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.95;
+}
+
 .badge {
     display: inline-block;
     background-color: #F6A300;
@@ -33,19 +112,46 @@ st.markdown("""
     padding: 0.35rem 0.8rem;
     border-radius: 999px;
     font-weight: 800;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     margin-top: 1rem;
 }
-.card, .answer-card, .trace-card {
+
+.card {
     background: white;
-    padding: 1.4rem;
-    border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(20, 43, 111, 0.08);
+    padding: 1.5rem;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(20,43,111,0.08);
     margin-bottom: 1rem;
 }
-.answer-card { border-left: 7px solid #F6A300; }
-.small-muted { color: #666; font-size: 0.9rem; }
-.footer { text-align: center; color: #777; font-size: 0.8rem; padding-top: 2rem; }
+
+.answer-card {
+    background: white;
+    border-left: 8px solid #F6A300;
+    padding: 1.5rem;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(20,43,111,0.08);
+    margin-bottom: 1rem;
+}
+
+.trace-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(20,43,111,0.08);
+}
+
+.small-muted {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.footer {
+    text-align: center;
+    color: #777;
+    font-size: 0.8rem;
+    padding-top: 2rem;
+}
+
 .stButton > button {
     background-color: #142B6F;
     color: white;
@@ -53,42 +159,70 @@ st.markdown("""
     border: none;
     font-weight: 800;
 }
-.stButton > button:hover { background-color: #F6A300; color: #142B6F; }
+
+.stButton > button:hover {
+    background-color: #F6A300;
+    color: #142B6F;
+}
+
 </style>
 """, unsafe_allow_html=True)
+
+# =========================================================
+# HEADER
+# =========================================================
 
 col_logo, col_text = st.columns([1, 3])
 
 with col_logo:
-    st.image("logo.png", width=250)
+    st.image("logo.png", width=260)
 
 with col_text:
     st.markdown("""
     <div class="header-box">
         <div class="header-title">Chequea360</div>
+
         <div class="header-subtitle">
             Plataforma de inteligencia informativa impulsada por Ecuador Chequea y ChequeaLab.
         </div>
+
         <div class="badge">
             10 años chequeando · Periodismo con rigor · Datos verificables
         </div>
     </div>
     """, unsafe_allow_html=True)
 
+# =========================================================
+# INTRO
+# =========================================================
+
 st.markdown("""
 <div class="card">
-    <strong>Haz una pregunta en español, inglés o portugués.</strong><br>
-    <span class="small-muted">
-    Ejemplos: Compara desempleo entre Ecuador y Colombia · ¿Cuál es el desempleo en América Latina? · What is inflation in South America?
-    </span>
+<strong>Haz preguntas en español, inglés o portugués.</strong><br>
+
+<span class="small-muted">
+Ejemplos:
+Compara desempleo entre Ecuador y Colombia ·
+¿Cuál es la inflación en América Latina? ·
+What is unemployment in South America? ·
+Qual é a inflação na América Latina?
+</span>
 </div>
 """, unsafe_allow_html=True)
 
+# =========================================================
+# INPUT
+# =========================================================
+
 question = st.text_input(
     "Pregunta",
-    placeholder="Ejemplo: ¿Cuál es el desempleo en América Latina?",
+    placeholder="Ejemplo: ¿Cuál es la inflación en América Latina?",
     label_visibility="collapsed"
 )
+
+# =========================================================
+# COUNTRIES
+# =========================================================
 
 COUNTRIES = {
     "Argentina": "ARG",
@@ -97,109 +231,301 @@ COUNTRIES = {
     "Chile": "CHL",
     "Colombia": "COL",
     "Costa Rica": "CRI",
+    "Cuba": "CUB",
+    "República Dominicana": "DOM",
     "Ecuador": "ECU",
     "El Salvador": "SLV",
     "Guatemala": "GTM",
+    "Guyana": "GUY",
+    "Haití": "HTI",
     "Honduras": "HND",
+    "Jamaica": "JAM",
     "México": "MEX",
     "Nicaragua": "NIC",
     "Panamá": "PAN",
     "Paraguay": "PRY",
     "Perú": "PER",
-    "República Dominicana": "DOM",
+    "Puerto Rico": "PRI",
+    "Surinam": "SUR",
+    "Trinidad y Tobago": "TTO",
     "Uruguay": "URY",
     "Venezuela": "VEN",
     "Canadá": "CAN",
     "Estados Unidos": "USA"
 }
 
+# =========================================================
+# ALIASES
+# =========================================================
+
 COUNTRY_ALIASES = {
+
     "argentina": "Argentina",
     "bolivia": "Bolivia",
+
     "brasil": "Brasil",
     "brazil": "Brasil",
+
     "chile": "Chile",
     "colombia": "Colombia",
+
     "costa rica": "Costa Rica",
-    "ecuador": "Ecuador",
-    "equador": "Ecuador",
-    "el salvador": "El Salvador",
-    "guatemala": "Guatemala",
-    "honduras": "Honduras",
-    "mexico": "México",
-    "nicaragua": "Nicaragua",
-    "panama": "Panamá",
-    "paraguay": "Paraguay",
-    "peru": "Perú",
+
+    "cuba": "Cuba",
+
     "republica dominicana": "República Dominicana",
     "dominican republic": "República Dominicana",
+
+    "ecuador": "Ecuador",
+    "equador": "Ecuador",
+
+    "el salvador": "El Salvador",
+
+    "guatemala": "Guatemala",
+
+    "guyana": "Guyana",
+    "guiana": "Guyana",
+
+    "haiti": "Haití",
+    "haití": "Haití",
+
+    "honduras": "Honduras",
+
+    "jamaica": "Jamaica",
+
+    "mexico": "México",
+    "méxico": "México",
+
+    "nicaragua": "Nicaragua",
+
+    "panama": "Panamá",
+    "panamá": "Panamá",
+
+    "paraguay": "Paraguay",
+
+    "peru": "Perú",
+    "perú": "Perú",
+
+    "puerto rico": "Puerto Rico",
+
+    "surinam": "Surinam",
+    "suriname": "Surinam",
+
+    "trinidad y tobago": "Trinidad y Tobago",
+    "trinidad and tobago": "Trinidad y Tobago",
+
     "uruguay": "Uruguay",
+
     "venezuela": "Venezuela",
+
     "canada": "Canadá",
+    "canadá": "Canadá",
+
     "estados unidos": "Estados Unidos",
     "united states": "Estados Unidos",
-    "usa": "Estados Unidos"
+    "usa": "Estados Unidos",
+    "eeuu": "Estados Unidos"
 }
 
+# =========================================================
+# REGIONS
+# =========================================================
+
 SOUTH_AMERICA = [
-    "Argentina", "Bolivia", "Brasil", "Chile", "Colombia",
-    "Ecuador", "Paraguay", "Perú", "Uruguay", "Venezuela"
+    "Argentina",
+    "Bolivia",
+    "Brasil",
+    "Chile",
+    "Colombia",
+    "Ecuador",
+    "Guyana",
+    "Paraguay",
+    "Perú",
+    "Surinam",
+    "Uruguay",
+    "Venezuela"
 ]
 
 LATIN_AMERICA = [
-    "Argentina", "Bolivia", "Brasil", "Chile", "Colombia",
-    "Costa Rica", "Ecuador", "El Salvador", "Guatemala",
-    "Honduras", "México", "Nicaragua", "Panamá", "Paraguay",
-    "Perú", "República Dominicana", "Uruguay", "Venezuela"
+    "Argentina",
+    "Bolivia",
+    "Brasil",
+    "Chile",
+    "Colombia",
+    "Costa Rica",
+    "Cuba",
+    "República Dominicana",
+    "Ecuador",
+    "El Salvador",
+    "Guatemala",
+    "Guyana",
+    "Haití",
+    "Honduras",
+    "Jamaica",
+    "México",
+    "Nicaragua",
+    "Panamá",
+    "Paraguay",
+    "Perú",
+    "Puerto Rico",
+    "Surinam",
+    "Trinidad y Tobago",
+    "Uruguay",
+    "Venezuela"
 ]
 
 AMERICA = [
-    "Canadá", "Estados Unidos", "México", "Argentina", "Bolivia",
-    "Brasil", "Chile", "Colombia", "Costa Rica", "Ecuador",
-    "Guatemala", "Honduras", "Panamá", "Paraguay", "Perú",
-    "Uruguay", "Venezuela"
+    "Canadá",
+    "Estados Unidos",
+    "México",
+    "Argentina",
+    "Bolivia",
+    "Brasil",
+    "Chile",
+    "Colombia",
+    "Costa Rica",
+    "Cuba",
+    "República Dominicana",
+    "Ecuador",
+    "El Salvador",
+    "Guatemala",
+    "Guyana",
+    "Haití",
+    "Honduras",
+    "Jamaica",
+    "Nicaragua",
+    "Panamá",
+    "Paraguay",
+    "Perú",
+    "Puerto Rico",
+    "Surinam",
+    "Trinidad y Tobago",
+    "Uruguay",
+    "Venezuela"
 ]
 
 REGIONS = {
+
     "sudamerica": SOUTH_AMERICA,
     "america del sur": SOUTH_AMERICA,
     "south america": SOUTH_AMERICA,
+
     "latinoamerica": LATIN_AMERICA,
     "america latina": LATIN_AMERICA,
     "latin america": LATIN_AMERICA,
+
     "america": AMERICA,
     "the americas": AMERICA
 }
 
+# =========================================================
+# INDICATORS
+# =========================================================
+
 INDICATORS = {
-    "desempleo": {"code": "SL.UEM.TOTL.ZS", "name": "Tasa de desempleo"},
-    "unemployment": {"code": "SL.UEM.TOTL.ZS", "name": "Unemployment rate"},
-    "desemprego": {"code": "SL.UEM.TOTL.ZS", "name": "Taxa de desemprego"},
 
-    "inflacion": {"code": "FP.CPI.TOTL.ZG", "name": "Inflación"},
-    "inflation": {"code": "FP.CPI.TOTL.ZG", "name": "Inflation"},
-    "inflacao": {"code": "FP.CPI.TOTL.ZG", "name": "Inflação"},
+    "desempleo": {
+        "code": "SL.UEM.TOTL.ZS",
+        "name": "Tasa de desempleo"
+    },
 
-    "pib": {"code": "NY.GDP.MKTP.KD.ZG", "name": "Crecimiento del PIB"},
-    "gdp": {"code": "NY.GDP.MKTP.KD.ZG", "name": "GDP growth"},
+    "unemployment": {
+        "code": "SL.UEM.TOTL.ZS",
+        "name": "Unemployment rate"
+    },
 
-    "esperanza de vida": {"code": "SP.DYN.LE00.IN", "name": "Esperanza de vida"},
-    "life expectancy": {"code": "SP.DYN.LE00.IN", "name": "Life expectancy"},
-    "expectativa de vida": {"code": "SP.DYN.LE00.IN", "name": "Expectativa de vida"},
+    "desemprego": {
+        "code": "SL.UEM.TOTL.ZS",
+        "name": "Taxa de desemprego"
+    },
 
-    "mortalidad infantil": {"code": "SP.DYN.IMRT.IN", "name": "Mortalidad infantil"},
-    "infant mortality": {"code": "SP.DYN.IMRT.IN", "name": "Infant mortality"},
-    "mortalidade infantil": {"code": "SP.DYN.IMRT.IN", "name": "Mortalidade infantil"}
+    "inflacion": {
+        "code": "FP.CPI.TOTL.ZG",
+        "name": "Inflación"
+    },
+
+    "inflation": {
+        "code": "FP.CPI.TOTL.ZG",
+        "name": "Inflation"
+    },
+
+    "inflacao": {
+        "code": "FP.CPI.TOTL.ZG",
+        "name": "Inflação"
+    },
+
+    "pib": {
+        "code": "NY.GDP.MKTP.KD.ZG",
+        "name": "Crecimiento del PIB"
+    },
+
+    "gdp": {
+        "code": "NY.GDP.MKTP.KD.ZG",
+        "name": "GDP growth"
+    },
+
+    "esperanza de vida": {
+        "code": "SP.DYN.LE00.IN",
+        "name": "Esperanza de vida"
+    },
+
+    "life expectancy": {
+        "code": "SP.DYN.LE00.IN",
+        "name": "Life expectancy"
+    },
+
+    "expectativa de vida": {
+        "code": "SP.DYN.LE00.IN",
+        "name": "Expectativa de vida"
+    },
+
+    "mortalidad infantil": {
+        "code": "SP.DYN.IMRT.IN",
+        "name": "Mortalidad infantil"
+    },
+
+    "infant mortality": {
+        "code": "SP.DYN.IMRT.IN",
+        "name": "Infant mortality"
+    },
+
+    "mortalidade infantil": {
+        "code": "SP.DYN.IMRT.IN",
+        "name": "Mortalidade infantil"
+    }
 }
 
+# =========================================================
+# LANG
+# =========================================================
+
 def detect_language(q):
-    if any(w in q for w in ["what", "compare", "between", "unemployment", "inflation", "poverty"]):
+
+    if any(w in q for w in [
+        "what",
+        "compare",
+        "between",
+        "unemployment",
+        "inflation"
+    ]):
         return "en"
-    if any(w in q for w in ["qual", "comparar", "desemprego", "inflacao", "expectativa"]):
+
+    if any(w in q for w in [
+        "qual",
+        "comparar",
+        "desemprego",
+        "inflacao"
+    ]):
         return "pt"
+
     return "es"
 
-def get_labels(lang):
+# =========================================================
+# LABELS
+# =========================================================
+
+def labels(lang):
+
     if lang == "en":
         return {
             "answer": "Answer",
@@ -209,11 +535,7 @@ def get_labels(lang):
             "value": "Value",
             "no_indicator": "I could not identify the indicator.",
             "no_geo": "I could not identify a country or region.",
-            "no_data": "No data was found for this query.",
-            "source_label": "Source",
-            "indicator": "Indicator",
-            "code": "Code",
-            "countries": "Countries"
+            "no_data": "No data was found for this query."
         }
 
     if lang == "pt":
@@ -225,11 +547,7 @@ def get_labels(lang):
             "value": "Valor",
             "no_indicator": "Não consegui identificar o indicador.",
             "no_geo": "Não consegui identificar um país ou região.",
-            "no_data": "Nenhum dado foi encontrado para esta consulta.",
-            "source_label": "Fonte",
-            "indicator": "Indicador",
-            "code": "Código",
-            "countries": "Países"
+            "no_data": "Nenhum dado foi encontrado para esta consulta."
         }
 
     return {
@@ -240,41 +558,65 @@ def get_labels(lang):
         "value": "Valor",
         "no_indicator": "No pude identificar el indicador.",
         "no_geo": "No pude identificar un país o región.",
-        "no_data": "No se encontraron datos para esa consulta.",
-        "source_label": "Fuente",
-        "indicator": "Indicador",
-        "code": "Código",
-        "countries": "Países"
+        "no_data": "No se encontraron datos para esa consulta."
     }
 
-submitted = st.button("🔎 Consultar datos", use_container_width=True)
+# =========================================================
+# QUERY
+# =========================================================
+
+submitted = st.button(
+    "🔎 Consultar datos",
+    use_container_width=True
+)
 
 if submitted:
+
     q_original = question.strip()
     q = clean_text(q_original)
 
     lang = detect_language(q)
-    L = get_labels(lang)
+    L = labels(lang)
 
     selected_indicator = None
     selected_countries = []
-    selected_region = None
+
+    # ---------------------------
+    # indicator
+    # ---------------------------
 
     for key, indicator in INDICATORS.items():
+
         if key in q:
             selected_indicator = indicator
             break
 
+    # ---------------------------
+    # region
+    # ---------------------------
+
     for region_key in sorted(REGIONS.keys(), key=len, reverse=True):
+
         if region_key in q:
-            selected_region = region_key.title()
             selected_countries = REGIONS[region_key]
             break
 
+    # ---------------------------
+    # countries
+    # ---------------------------
+
     if not selected_countries:
+
         for alias, official_name in COUNTRY_ALIASES.items():
-            if alias in q and official_name not in selected_countries:
-                selected_countries.append(official_name)
+
+            if alias in q:
+
+                if official_name not in selected_countries:
+                    selected_countries.append(official_name)
+
+    # =====================================================
+    # ERRORS
+    # =====================================================
 
     if not q:
         st.warning("Por favor escribe una pregunta.")
@@ -286,53 +628,122 @@ if submitted:
         st.error(L["no_geo"])
 
     else:
+
         all_data = []
 
         with st.spinner("Consultando datos oficiales del Banco Mundial..."):
+
             for country in selected_countries:
+
                 code = COUNTRIES.get(country)
 
                 if code:
-                    df = fetch_worldbank_data(code, selected_indicator["code"])
+
+                    df = fetch_worldbank_data(
+                        code,
+                        selected_indicator["code"]
+                    )
 
                     if not df.empty:
+
                         df["country"] = country
                         all_data.append(df)
 
         if not all_data:
+
             st.error(L["no_data"])
 
         else:
-            final_df = pd.concat(all_data, ignore_index=True)
+
+            final_df = pd.concat(
+                all_data,
+                ignore_index=True
+            )
 
             latest_df = (
-                final_df.sort_values("year")
+                final_df
+                .sort_values("year")
                 .groupby("country")
                 .tail(1)
                 .sort_values("value", ascending=False)
             )
 
-            count = len(latest_df)
             top = latest_df.iloc[0]
 
             top_country = top["country"]
             top_value = round(top["value"], 2)
             top_year = int(top["year"])
 
-            if count == 1:
+            # =================================================
+            # ANSWER
+            # =================================================
+
+            if len(selected_countries) == 1:
+
                 if lang == "en":
-                    answer = f"According to World Bank data, <strong>{selected_indicator['name']}</strong> in <strong>{top_country}</strong> recorded <strong>{top_value}</strong> in <strong>{top_year}</strong>."
+
+                    answer = f"""
+                    According to World Bank data,
+                    <strong>{selected_indicator['name']}</strong>
+                    in <strong>{top_country}</strong>
+                    recorded <strong>{top_value}</strong>
+                    in <strong>{top_year}</strong>.
+                    """
+
                 elif lang == "pt":
-                    answer = f"Segundo dados do Banco Mundial, <strong>{selected_indicator['name']}</strong> em <strong>{top_country}</strong> registrou <strong>{top_value}</strong> em <strong>{top_year}</strong>."
+
+                    answer = f"""
+                    Segundo dados do Banco Mundial,
+                    <strong>{selected_indicator['name']}</strong>
+                    em <strong>{top_country}</strong>
+                    registrou <strong>{top_value}</strong>
+                    em <strong>{top_year}</strong>.
+                    """
+
                 else:
-                    answer = f"Según datos del Banco Mundial, <strong>{selected_indicator['name']}</strong> en <strong>{top_country}</strong> registró <strong>{top_value}</strong> en <strong>{top_year}</strong>."
+
+                    answer = f"""
+                    Según datos del Banco Mundial,
+                    <strong>{selected_indicator['name']}</strong>
+                    en <strong>{top_country}</strong>
+                    registró <strong>{top_value}</strong>
+                    en <strong>{top_year}</strong>.
+                    """
+
             else:
+
                 if lang == "en":
-                    answer = f"This query compares <strong>{count}</strong> countries. In the latest available year, the highest value is <strong>{top_country}</strong>, with <strong>{top_value}</strong> in <strong>{top_year}</strong>."
+
+                    answer = f"""
+                    This query compares
+                    <strong>{len(selected_countries)}</strong>
+                    countries from the region.
+                    The highest recent value appears in
+                    <strong>{top_country}</strong>
+                    with <strong>{top_value}</strong>.
+                    """
+
                 elif lang == "pt":
-                    answer = f"Esta consulta compara <strong>{count}</strong> países. No ano mais recente disponível, o maior valor aparece em <strong>{top_country}</strong>, com <strong>{top_value}</strong> em <strong>{top_year}</strong>."
+
+                    answer = f"""
+                    Esta consulta compara
+                    <strong>{len(selected_countries)}</strong>
+                    países da região.
+                    O maior valor recente aparece em
+                    <strong>{top_country}</strong>
+                    com <strong>{top_value}</strong>.
+                    """
+
                 else:
-                    answer = f"Esta consulta compara <strong>{count}</strong> países. En el año más reciente disponible, el valor más alto aparece en <strong>{top_country}</strong>, con <strong>{top_value}</strong> en <strong>{top_year}</strong>."
+
+                    answer = f"""
+                    Esta consulta compara
+                    <strong>{len(selected_countries)}</strong>
+                    países de la región.
+                    El valor más alto reciente aparece en
+                    <strong>{top_country}</strong>
+                    con <strong>{top_value}</strong>.
+                    """
 
             st.markdown(f"""
             <div class="answer-card">
@@ -341,7 +752,12 @@ if submitted:
             </div>
             """, unsafe_allow_html=True)
 
-            if count == 1:
+            # =================================================
+            # CHART
+            # =================================================
+
+            if len(selected_countries) == 1:
+
                 fig = px.line(
                     final_df,
                     x="year",
@@ -349,46 +765,84 @@ if submitted:
                     markers=True,
                     title=f"{selected_indicator['name']} · {top_country}"
                 )
+
             else:
+
                 fig = px.line(
                     final_df,
                     x="year",
                     y="value",
                     color="country",
                     markers=True,
-                    title=f"{selected_indicator['name']} · Comparación"
+                    title=f"{selected_indicator['name']} · Comparación regional"
                 )
 
             fig.update_layout(
                 xaxis_title=L["year"],
                 yaxis_title=L["value"],
-                height=500
+                height=550
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+            # =================================================
+            # TABLE + TRACEABILITY
+            # =================================================
 
             col1, col2 = st.columns([1, 1])
 
             with col1:
+
                 with st.expander(L["data"]):
                     st.dataframe(final_df)
 
             with col2:
+
                 countries_text = ", ".join(selected_countries)
 
                 st.markdown(f"""
                 <div class="trace-card">
-                    <h4>🔎 {L["source"]}</h4>
-                    <p><strong>{L["source_label"]}:</strong> Banco Mundial</p>
-                    <p><strong>{L["indicator"]}:</strong> {selected_indicator['name']}</p>
-                    <p><strong>{L["code"]}:</strong> {selected_indicator['code']}</p>
-                    <p><strong>{L["countries"]}:</strong> {countries_text}</p>
-                    <p><a href="https://data.worldbank.org/" target="_blank">World Bank Open Data</a></p>
+
+                <h4>🔎 {L["source"]}</h4>
+
+                <p>
+                <strong>Fuente:</strong>
+                Banco Mundial
+                </p>
+
+                <p>
+                <strong>Indicador:</strong>
+                {selected_indicator['name']}
+                </p>
+
+                <p>
+                <strong>Código:</strong>
+                {selected_indicator['code']}
+                </p>
+
+                <p>
+                <strong>Países:</strong>
+                {countries_text}
+                </p>
+
+                <p>
+                <a href="https://data.worldbank.org/" target="_blank">
+                World Bank Open Data
+                </a>
+                </p>
+
                 </div>
                 """, unsafe_allow_html=True)
 
+# =========================================================
+# FOOTER
+# =========================================================
+
 st.markdown("""
 <div class="footer">
-    Chequea360 · Ecuador Chequea · ChequeaLab · Datos oficiales del Banco Mundial
+Chequea360 · Ecuador Chequea · ChequeaLab · Datos oficiales del Banco Mundial
 </div>
 """, unsafe_allow_html=True)
