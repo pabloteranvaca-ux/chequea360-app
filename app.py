@@ -504,7 +504,7 @@ def labels(lang):
 # =========================================================
 
 submitted = st.button(
-    "🔎 Consultar datos",
+    "📊Consultar datos",
     use_container_width=True
 )
 
