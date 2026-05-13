@@ -175,6 +175,9 @@ st.markdown("""
 # HEADER
 # =========================================================
 
+# HEADER
+# =========================================================
+
 col_logo, col_text = st.columns([1, 3])
 
 with col_logo:
@@ -189,12 +192,9 @@ with col_text:
 
         '<div class="header-subtitle">'
 
-        'Chequea360 es una plataforma de inteligencia informativa que integra:<br><br>'
-
-        '• Inteligencia artificial.<br>'
-        '• API Data360 del Banco Mundial.<br>'
-        '• Metodologías periodísticas de verificación de datos.<br>'
-        '• Capacitación y alfabetización en datos a través de ChequeaLab.<br><br>'
+        'Chequea360 es una plataforma de inteligencia informativa que integra inteligencia artificial, '
+        'la API Data360 del Banco Mundial, metodologías periodísticas de verificación de datos y procesos '
+        'de capacitación y alfabetización en datos a través de ChequeaLab.<br><br>'
 
         'Su objetivo es permitir que periodistas, investigadores y ciudadanos '
         'puedan consultar, interpretar y validar datos de desarrollo en tiempo real.'
