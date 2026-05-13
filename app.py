@@ -28,7 +28,6 @@ def clean_text(text):
 
 @st.cache_data(ttl=3600)
 def fetch_worldbank_data(country_code, indicator_code):
-
     url = f"https://api.worldbank.org/v2/country/{country_code}/indicator/{indicator_code}"
 
     params = {
@@ -37,12 +36,7 @@ def fetch_worldbank_data(country_code, indicator_code):
     }
 
     try:
-        response = requests.get(
-            url,
-            params=params,
-            timeout=20
-        )
-
+        response = requests.get(url, params=params, timeout=20)
         data = response.json()
 
         if not isinstance(data, list) or len(data) < 2:
@@ -51,9 +45,7 @@ def fetch_worldbank_data(country_code, indicator_code):
         rows = []
 
         for item in data[1]:
-
             if item.get("value") is not None:
-
                 rows.append({
                     "year": int(item.get("date")),
                     "value": float(item.get("value"))
@@ -68,6 +60,66 @@ def fetch_worldbank_data(country_code, indicator_code):
 
     except Exception:
         return pd.DataFrame()
+
+@st.cache_data(ttl=86400)
+def fetch_worldbank_countries():
+    url = "https://api.worldbank.org/v2/country"
+
+    params = {
+        "format": "json",
+        "per_page": 400
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=20)
+        data = response.json()
+
+        if not isinstance(data, list) or len(data) < 2:
+            return []
+
+        countries = []
+
+        for item in data[1]:
+            region = item.get("region", {}).get("value", "")
+
+            if region and region != "Aggregates":
+                countries.append({
+                    "name": item.get("name"),
+                    "code": item.get("id")
+                })
+
+        return countries
+
+    except Exception:
+        return []
+
+@st.cache_data(ttl=3600)
+def fetch_global_ranking(indicator_code):
+    countries = fetch_worldbank_countries()
+    rows = []
+
+    for country in countries:
+        df = fetch_worldbank_data(country["code"], indicator_code)
+
+        if not df.empty:
+            latest = df.iloc[-1]
+
+            rows.append({
+                "country": country["name"],
+                "code": country["code"],
+                "year": int(latest["year"]),
+                "value": float(latest["value"])
+            })
+
+    ranking_df = pd.DataFrame(rows)
+
+    if ranking_df.empty:
+        return ranking_df
+
+    ranking_df = ranking_df.sort_values("value", ascending=False)
+    ranking_df.insert(0, "rank", range(1, len(ranking_df) + 1))
+
+    return ranking_df
 
 # =========================================================
 # DESIGN
@@ -88,7 +140,7 @@ st.markdown("""
 
 .header-box {
     background: linear-gradient(135deg, #142B6F 0%, #1D3F95 100%);
-    padding: 2.2rem;
+    padding: 2rem;
     border-radius: 24px;
     color: white;
     margin-bottom: 2rem;
@@ -104,7 +156,7 @@ st.markdown("""
 .header-subtitle {
     font-size: 1rem;
     margin-top: 1rem;
-    line-height: 1.8;
+    line-height: 1.6;
 }
 
 .badge {
@@ -115,15 +167,16 @@ st.markdown("""
     border-radius: 999px;
     font-weight: 800;
     font-size: 0.8rem;
-    margin-top: 1.4rem;
+    margin-top: 1.2rem;
 }
 
 .card {
     background: white;
-    padding: 1.5rem;
+    padding: 18px 22px;
     border-radius: 18px;
     box-shadow: 0 4px 16px rgba(20,43,111,0.08);
     margin-bottom: 1rem;
+    line-height: 1.5;
 }
 
 .answer-card {
@@ -143,8 +196,8 @@ st.markdown("""
 }
 
 .small-muted {
-    color: #666;
-    font-size: 0.9rem;
+    color: #555;
+    font-size: 0.95rem;
 }
 
 .footer {
@@ -172,9 +225,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# HEADER
-# =========================================================
-
 # HEADER
 # =========================================================
 
@@ -215,41 +265,30 @@ with col_text:
 # =========================================================
 
 st.markdown("""
-<div style="
-background:#f7f7f7;
-padding:18px 22px;
-border-radius:18px;
-margin-bottom:18px;
-line-height:1.5;
-">
+<div class="card">
 
 <p style="margin:0; font-size:1.05rem; font-weight:700; color:#1f1f1f;">
 Consulta indicadores económicos y sociales oficiales.
 </p>
 
-<p style="margin-top:10px; margin-bottom:10px; color:#4a4a4a;">
-
-Chequea360 permite buscar, comparar e interpretar datos oficiales del Banco Mundial sobre PIB, crecimiento económico, inflación, desempleo, pobreza, desarrollo económico y social, así como comparaciones entre países y regiones.
-
+<p style="margin-top:10px; margin-bottom:8px;" class="small-muted">
+Chequea360 permite buscar, comparar e interpretar datos oficiales del Banco Mundial sobre PIB, crecimiento económico, inflación, desempleo, pobreza, desarrollo económico y social, así como comparaciones entre países, regiones y rankings globales.
 </p>
 
-<p style="margin-top:0; margin-bottom:10px; color:#4a4a4a;">
-Puedes hacer preguntas en español, inglés o portugués.
-</p>
-
-<p style="margin:0; color:#4a4a4a;">
-<strong>Ejemplos:</strong> Ecuador pobreza · Compara desempleo entre Ecuador y Colombia · ¿Cuál es la inflación en América Latina? · What is unemployment in South America? · Qual é a inflação na América Latina?
+<p style="margin:0;" class="small-muted">
+<strong>Ejemplos:</strong> Ecuador pobreza · Compara desempleo entre Ecuador y Colombia · ¿Cuál es la inflación en América Latina? · Ranking mundial de desempleo · Global ranking of inflation · Qual é a inflação na América Latina?
 </p>
 
 </div>
 """, unsafe_allow_html=True)
+
 # =========================================================
 # INPUT
 # =========================================================
 
 question = st.text_input(
     "Pregunta",
-    placeholder="Ejemplo: Ecuador pobreza",
+    placeholder="Ejemplo: Ranking mundial de desempleo",
     label_visibility="collapsed"
 )
 
@@ -286,10 +325,6 @@ COUNTRIES = {
     "Canadá": "CAN",
     "Estados Unidos": "USA"
 }
-
-# =========================================================
-# COUNTRY ALIASES
-# =========================================================
 
 COUNTRY_ALIASES = {
     "argentina": "Argentina",
@@ -449,7 +484,10 @@ def detect_language(q):
         "unemployment",
         "inflation",
         "poverty",
-        "gdp"
+        "gdp",
+        "global ranking",
+        "world ranking",
+        "all countries"
     ]
 
     pt_words = [
@@ -468,6 +506,32 @@ def detect_language(q):
 
     return "es"
 
+def is_global_query(q):
+    global_words = [
+        "ranking mundial",
+        "ranking global",
+        "global",
+        "mundial",
+        "mundo",
+        "todos los paises",
+        "todos los países",
+        "todos los paises del mundo",
+        "todos los países del mundo",
+        "all countries",
+        "world ranking",
+        "global ranking",
+        "ranking do mundo",
+        "ranking mundial",
+        "todos os paises",
+        "todos os países"
+    ]
+
+    for word in global_words:
+        if word in q:
+            return True
+
+    return False
+
 # =========================================================
 # LABELS
 # =========================================================
@@ -484,7 +548,9 @@ def labels(lang):
             "value": "Value",
             "no_indicator": "I could not identify the indicator.",
             "no_geo": "I could not identify a country or region.",
-            "no_data": "No data was found for this query."
+            "no_data": "No data was found for this query.",
+            "ranking_title": "Global ranking",
+            "top_chart": "Top 30 countries"
         }
 
     if lang == "pt":
@@ -497,7 +563,9 @@ def labels(lang):
             "value": "Valor",
             "no_indicator": "Não consegui identificar o indicador.",
             "no_geo": "Não consegui identificar um país ou região.",
-            "no_data": "Nenhum dado foi encontrado para esta consulta."
+            "no_data": "Nenhum dado foi encontrado para esta consulta.",
+            "ranking_title": "Ranking global",
+            "top_chart": "Top 30 países"
         }
 
     return {
@@ -508,7 +576,9 @@ def labels(lang):
         "value": "Valor",
         "no_indicator": "No pude identificar el indicador.",
         "no_geo": "No pude identificar un país o región.",
-        "no_data": "No se encontraron datos para esa consulta."
+        "no_data": "No se encontraron datos para esa consulta.",
+        "ranking_title": "Ranking global",
+        "top_chart": "Top 30 países"
     }
 
 # =========================================================
@@ -516,7 +586,7 @@ def labels(lang):
 # =========================================================
 
 submitted = st.button(
-    "📊Consultar datos",
+    "📊 Consultar datos",
     use_container_width=True
 )
 
@@ -534,6 +604,7 @@ if submitted:
 
     selected_indicator = None
     selected_countries = []
+    global_query = is_global_query(q)
 
     # Indicator
 
@@ -543,33 +614,6 @@ if submitted:
             selected_indicator = indicator
             break
 
-    # Region
-
-    for region_key in sorted(
-        REGIONS.keys(),
-        key=len,
-        reverse=True
-    ):
-
-        if region_key in q:
-            selected_countries = REGIONS[region_key]
-            break
-
-    # Countries
-
-    if not selected_countries:
-
-        for alias, official_name in COUNTRY_ALIASES.items():
-
-            if alias in q:
-
-                if official_name not in selected_countries:
-                    selected_countries.append(official_name)
-
-    # =====================================================
-    # ERRORS
-    # =====================================================
-
     if not q:
 
         st.warning("Por favor escribe una pregunta.")
@@ -578,164 +622,76 @@ if submitted:
 
         st.error(L["no_indicator"])
 
-    elif not selected_countries:
+    # =====================================================
+    # GLOBAL RANKING
+    # =====================================================
 
-        st.error(L["no_geo"])
+    elif global_query:
 
-    else:
+        with st.spinner("Construyendo ranking global con datos oficiales del Banco Mundial..."):
 
-        all_data = []
+            ranking_df = fetch_global_ranking(
+                selected_indicator["code"]
+            )
 
-        with st.spinner(
-            "Consultando datos oficiales del Banco Mundial..."
-        ):
-
-            for country in selected_countries:
-
-                code = COUNTRIES.get(country)
-
-                if code:
-
-                    df = fetch_worldbank_data(
-                        code,
-                        selected_indicator["code"]
-                    )
-
-                    if not df.empty:
-
-                        df["country"] = country
-                        all_data.append(df)
-
-        if not all_data:
+        if ranking_df.empty:
 
             st.error(L["no_data"])
 
         else:
 
-            final_df = pd.concat(
-                all_data,
-                ignore_index=True
-            )
+            top_country = ranking_df.iloc[0]["country"]
+            top_value = round(ranking_df.iloc[0]["value"], 2)
+            top_year = int(ranking_df.iloc[0]["year"])
+            total_countries = len(ranking_df)
 
-            latest_df = (
-                final_df
-                .sort_values("year")
-                .groupby("country")
-                .tail(1)
-                .sort_values("value", ascending=False)
-            )
+            if lang == "en":
 
-            top = latest_df.iloc[0]
+                answer = f"""
+                This global ranking includes <strong>{total_countries}</strong> countries with available data.
+                The highest recent value for <strong>{selected_indicator['name']}</strong> appears in
+                <strong>{top_country}</strong>, with <strong>{top_value}</strong> in <strong>{top_year}</strong>.
+                """
 
-            top_country = top["country"]
-            top_value = round(top["value"], 2)
-            top_year = int(top["year"])
+            elif lang == "pt":
 
-            # =================================================
-            # ANSWER
-            # =================================================
-
-            if len(selected_countries) == 1:
-
-                if lang == "en":
-
-                    answer = f"""
-                    According to World Bank data,
-                    <strong>{selected_indicator['name']}</strong>
-                    in <strong>{top_country}</strong>
-                    recorded <strong>{top_value}</strong>
-                    in <strong>{top_year}</strong>.
-                    """
-
-                elif lang == "pt":
-
-                    answer = f"""
-                    Segundo dados do Banco Mundial,
-                    <strong>{selected_indicator['name']}</strong>
-                    em <strong>{top_country}</strong>
-                    registrou <strong>{top_value}</strong>
-                    em <strong>{top_year}</strong>.
-                    """
-
-                else:
-
-                    answer = f"""
-                    Según datos del Banco Mundial,
-                    <strong>{selected_indicator['name']}</strong>
-                    en <strong>{top_country}</strong>
-                    registró <strong>{top_value}</strong>
-                    en <strong>{top_year}</strong>.
-                    """
+                answer = f"""
+                Este ranking global inclui <strong>{total_countries}</strong> países com dados disponíveis.
+                O maior valor recente para <strong>{selected_indicator['name']}</strong> aparece em
+                <strong>{top_country}</strong>, com <strong>{top_value}</strong> em <strong>{top_year}</strong>.
+                """
 
             else:
 
-                if lang == "en":
-
-                    answer = f"""
-                    This query compares
-                    <strong>{len(selected_countries)}</strong>
-                    countries from the region.
-                    The highest recent value appears in
-                    <strong>{top_country}</strong>
-                    with <strong>{top_value}</strong>.
-                    """
-
-                elif lang == "pt":
-
-                    answer = f"""
-                    Esta consulta compara
-                    <strong>{len(selected_countries)}</strong>
-                    países da região.
-                    O maior valor recente aparece em
-                    <strong>{top_country}</strong>
-                    com <strong>{top_value}</strong>.
-                    """
-
-                else:
-
-                    answer = f"""
-                    Esta consulta compara
-                    <strong>{len(selected_countries)}</strong>
-                    países de la región.
-                    El valor más alto reciente aparece en
-                    <strong>{top_country}</strong>
-                    con <strong>{top_value}</strong>.
-                    """
+                answer = f"""
+                Este ranking global incluye <strong>{total_countries}</strong> países con datos disponibles.
+                El valor reciente más alto para <strong>{selected_indicator['name']}</strong> aparece en
+                <strong>{top_country}</strong>, con <strong>{top_value}</strong> en <strong>{top_year}</strong>.
+                """
 
             st.markdown(
-                f'<div class="answer-card"><h3>{L["answer"]}</h3>{answer}</div>',
+                f'<div class="answer-card"><h3>{L["ranking_title"]}</h3>{answer}</div>',
                 unsafe_allow_html=True
             )
 
-            # =================================================
-            # CHART
-            # =================================================
+            top_30 = ranking_df.head(30).sort_values("value", ascending=True)
 
-            if len(selected_countries) == 1:
-
-                fig = px.line(
-                    final_df,
-                    x="year",
-                    y="value",
-                    markers=True,
-                    title=f"{selected_indicator['name']} · {top_country}"
-                )
-
-            else:
-
-                fig = px.line(
-                    final_df,
-                    x="year",
-                    y="value",
-                    color="country",
-                    markers=True,
-                    title=f"{selected_indicator['name']} · Comparación regional"
-                )
+            fig = px.bar(
+                top_30,
+                x="value",
+                y="country",
+                orientation="h",
+                title=f"{selected_indicator['name']} · {L['top_chart']}",
+                labels={
+                    "value": L["value"],
+                    "country": "País"
+                }
+            )
 
             fig.update_layout(
-                xaxis_title=L["year"],
-                yaxis_title=L["value"],
-                height=550
+                height=750,
+                xaxis_title=L["value"],
+                yaxis_title=""
             )
 
             st.plotly_chart(
@@ -743,20 +699,14 @@ if submitted:
                 use_container_width=True
             )
 
-            # =================================================
-            # DATA
-            # =================================================
-
             col1, col2 = st.columns([1, 1])
 
             with col1:
 
                 with st.expander(L["data"]):
-                    st.dataframe(final_df)
+                    st.dataframe(ranking_df)
 
             with col2:
-
-                countries_text = ", ".join(selected_countries)
 
                 st.markdown(f"""
                 <div class="trace-card">
@@ -779,8 +729,8 @@ if submitted:
                 </p>
 
                 <p>
-                <strong>Países:</strong>
-                {countries_text}
+                <strong>Tipo de consulta:</strong>
+                Ranking global de países
                 </p>
 
                 <p>
@@ -791,6 +741,243 @@ if submitted:
 
                 </div>
                 """, unsafe_allow_html=True)
+
+    # =====================================================
+    # COUNTRY / REGION QUERY
+    # =====================================================
+
+    else:
+
+        # Region
+
+        for region_key in sorted(
+            REGIONS.keys(),
+            key=len,
+            reverse=True
+        ):
+
+            if region_key in q:
+                selected_countries = REGIONS[region_key]
+                break
+
+        # Countries
+
+        if not selected_countries:
+
+            for alias, official_name in COUNTRY_ALIASES.items():
+
+                if alias in q:
+
+                    if official_name not in selected_countries:
+                        selected_countries.append(official_name)
+
+        if not selected_countries:
+
+            st.error(L["no_geo"])
+
+        else:
+
+            all_data = []
+
+            with st.spinner(
+                "Consultando datos oficiales del Banco Mundial..."
+            ):
+
+                for country in selected_countries:
+
+                    code = COUNTRIES.get(country)
+
+                    if code:
+
+                        df = fetch_worldbank_data(
+                            code,
+                            selected_indicator["code"]
+                        )
+
+                        if not df.empty:
+
+                            df["country"] = country
+                            all_data.append(df)
+
+            if not all_data:
+
+                st.error(L["no_data"])
+
+            else:
+
+                final_df = pd.concat(
+                    all_data,
+                    ignore_index=True
+                )
+
+                latest_df = (
+                    final_df
+                    .sort_values("year")
+                    .groupby("country")
+                    .tail(1)
+                    .sort_values("value", ascending=False)
+                )
+
+                top = latest_df.iloc[0]
+
+                top_country = top["country"]
+                top_value = round(top["value"], 2)
+                top_year = int(top["year"])
+
+                # Answer
+
+                if len(selected_countries) == 1:
+
+                    if lang == "en":
+
+                        answer = f"""
+                        According to World Bank data,
+                        <strong>{selected_indicator['name']}</strong>
+                        in <strong>{top_country}</strong>
+                        recorded <strong>{top_value}</strong>
+                        in <strong>{top_year}</strong>.
+                        """
+
+                    elif lang == "pt":
+
+                        answer = f"""
+                        Segundo dados do Banco Mundial,
+                        <strong>{selected_indicator['name']}</strong>
+                        em <strong>{top_country}</strong>
+                        registrou <strong>{top_value}</strong>
+                        em <strong>{top_year}</strong>.
+                        """
+
+                    else:
+
+                        answer = f"""
+                        Según datos del Banco Mundial,
+                        <strong>{selected_indicator['name']}</strong>
+                        en <strong>{top_country}</strong>
+                        registró <strong>{top_value}</strong>
+                        en <strong>{top_year}</strong>.
+                        """
+
+                else:
+
+                    if lang == "en":
+
+                        answer = f"""
+                        This query compares
+                        <strong>{len(selected_countries)}</strong>
+                        countries from the region.
+                        The highest recent value appears in
+                        <strong>{top_country}</strong>
+                        with <strong>{top_value}</strong>.
+                        """
+
+                    elif lang == "pt":
+
+                        answer = f"""
+                        Esta consulta compara
+                        <strong>{len(selected_countries)}</strong>
+                        países da região.
+                        O maior valor recente aparece em
+                        <strong>{top_country}</strong>
+                        com <strong>{top_value}</strong>.
+                        """
+
+                    else:
+
+                        answer = f"""
+                        Esta consulta compara
+                        <strong>{len(selected_countries)}</strong>
+                        países de la región.
+                        El valor más alto reciente aparece en
+                        <strong>{top_country}</strong>
+                        con <strong>{top_value}</strong>.
+                        """
+
+                st.markdown(
+                    f'<div class="answer-card"><h3>{L["answer"]}</h3>{answer}</div>',
+                    unsafe_allow_html=True
+                )
+
+                # Chart
+
+                if len(selected_countries) == 1:
+
+                    fig = px.line(
+                        final_df,
+                        x="year",
+                        y="value",
+                        markers=True,
+                        title=f"{selected_indicator['name']} · {top_country}"
+                    )
+
+                else:
+
+                    fig = px.line(
+                        final_df,
+                        x="year",
+                        y="value",
+                        color="country",
+                        markers=True,
+                        title=f"{selected_indicator['name']} · Comparación regional"
+                    )
+
+                fig.update_layout(
+                    xaxis_title=L["year"],
+                    yaxis_title=L["value"],
+                    height=550
+                )
+
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True
+                )
+
+                # Data + traceability
+
+                col1, col2 = st.columns([1, 1])
+
+                with col1:
+
+                    with st.expander(L["data"]):
+                        st.dataframe(final_df)
+
+                with col2:
+
+                    countries_text = ", ".join(selected_countries)
+
+                    st.markdown(f"""
+                    <div class="trace-card">
+
+                    <h4>🔎 {L["source"]}</h4>
+
+                    <p>
+                    <strong>Fuente:</strong>
+                    Banco Mundial
+                    </p>
+
+                    <p>
+                    <strong>Indicador:</strong>
+                    {selected_indicator['name']}
+                    </p>
+
+                    <p>
+                    <strong>Código:</strong>
+                    {selected_indicator['code']}
+                    </p>
+
+                    <p>
+                    <strong>Países:</strong>
+                    {countries_text}
+                    </p>
+
+                    <p>
+                    <a href="https://data.worldbank.org/" target="_blank">
+                    World Bank Open Data
+                    </a>
+                    </p>
+
+                    </div>
+                    """, unsafe_allow_html=True)
 
 # =========================================================
 # FOOTER
