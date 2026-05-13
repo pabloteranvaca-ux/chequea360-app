@@ -215,22 +215,30 @@ with col_text:
 # =========================================================
 
 st.markdown("""
-<div class="card">
+<div style="
+background:#f7f7f7;
+padding:18px 22px;
+border-radius:18px;
+margin-bottom:18px;
+line-height:1.5;
+">
 
-<strong>Consulta indicadores económicos y sociales oficiales.</strong>
+<p style="margin:0; font-size:1.05rem; font-weight:700; color:#1f1f1f;">
+Consulta indicadores económicos y sociales oficiales.
+</p>
 
-<p class="small-muted" style="margin-top:10px; line-height:1.6;">
+<p style="margin-top:10px; margin-bottom:10px; color:#4a4a4a;">
 
 Chequea360 permite buscar, comparar e interpretar datos oficiales del Banco Mundial sobre PIB, crecimiento económico, inflación, desempleo, pobreza, desarrollo económico y social, así como comparaciones entre países y regiones.
 
-<br><br>
+</p>
 
+<p style="margin-top:0; margin-bottom:10px; color:#4a4a4a;">
 Puedes hacer preguntas en español, inglés o portugués.
+</p>
 
-<br><br>
-
+<p style="margin:0; color:#4a4a4a;">
 <strong>Ejemplos:</strong> Ecuador pobreza · Compara desempleo entre Ecuador y Colombia · ¿Cuál es la inflación en América Latina? · What is unemployment in South America? · Qual é a inflação na América Latina?
-
 </p>
 
 </div>
