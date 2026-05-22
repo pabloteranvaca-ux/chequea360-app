@@ -595,7 +595,93 @@ def labels(lang):
         "ranking_title": "Ranking global",
         "top_chart": "Top 30 países"
     }
+def mostrar_compartir(question):
 
+    import urllib.parse
+
+    base_url = "https://chequea360.streamlit.app"
+
+    pregunta = question.strip()
+
+    share_url = (
+        base_url
+        + "?q="
+        + urllib.parse.quote(pregunta)
+    )
+
+    embed_code = f"""
+<iframe
+src="{share_url}"
+width="100%"
+height="700"
+style="border:0;border-radius:18px;">
+</iframe>
+"""
+
+    mensaje = (
+        f"{pregunta}\n\n"
+        f"Míralo en Chequea360:\n"
+        f"{share_url}"
+    )
+
+    st.markdown("## Compartir o incrustar")
+
+    tab1, tab2 = st.tabs([
+        "Insertar en web",
+        "Compartir"
+    ])
+
+    with tab1:
+
+        st.code(
+            embed_code,
+            language="html"
+        )
+
+    with tab2:
+
+        st.text_area(
+            "Mensaje",
+            mensaje,
+            height=120
+        )
+
+        c1,c2,c3,c4,c5 = st.columns(5)
+
+        with c1:
+            st.link_button(
+                "WhatsApp",
+                "https://wa.me/?text="
+                + urllib.parse.quote(mensaje)
+            )
+
+        with c2:
+            st.link_button(
+                "X",
+                "https://twitter.com/intent/tweet?text="
+                + urllib.parse.quote(mensaje)
+            )
+
+        with c3:
+            st.link_button(
+                "Facebook",
+                "https://www.facebook.com/sharer/sharer.php?u="
+                + urllib.parse.quote(share_url)
+            )
+
+        with c4:
+            st.link_button(
+                "LinkedIn",
+                "https://www.linkedin.com/sharing/share-offsite/?url="
+                + urllib.parse.quote(share_url)
+            )
+
+        with c5:
+            st.link_button(
+                "Telegram",
+                "https://t.me/share/url?url="
+                + urllib.parse.quote(share_url)
+            )
 # =========================================================
 # BUTTON
 # =========================================================
@@ -696,6 +782,7 @@ if submitted:
                 fig,
                 use_container_width=True
             )
+            mostrar_compartir(question)
 
             col1, col2 = st.columns([1, 1])
 
@@ -876,6 +963,7 @@ if submitted:
                     fig,
                     use_container_width=True
                 )
+                mostrar_compartir(question)
 
                 col1, col2 = st.columns([1, 1])
 

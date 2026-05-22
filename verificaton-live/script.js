@@ -1,104 +1,94 @@
 const CSV_URL =
-"https://docs.google.com/spreadsheets/d/e/2PACX-1vSRPBjaqdSQsWOaN35oSpdQN0c5yoy3ulgDgYJG96Rm4WMgHLyfz_LSOysBECDtjg/pub?gid=577921792&single=true&output=csv";
+"https://docs.google.com/spreadsheets/d/1ong4kdAkmigKBT0Ra5LLJJmsrAEPYivh/gviz/tq?tqx=out:csv&gid=828045008";
+
+const universidades = [
+  "Universidad Central del Ecuador",
+  "Universidad Politécnica Salesiana",
+  "Pontificia Universidad Católica",
+  "Universidad Técnica Particular de Loja",
+  "Universidad Técnica de Cotopaxi",
+  "Universidad Técnica de Manabí",
+  "Universidad de Especialidades Espíritu Santo",
+  "Universidad Estatal de Bolívar"
+];
 
 async function cargarDatos() {
+  let data = universidades.map(nombre => ({
+    universidad: nombre,
+    falso: 0,
+    enganoso: 0,
+    impreciso: 0,
+    cierto: 0,
+    satira: 0,
+    inverificable: 0
+  }));
+
   try {
-    const response = await fetch(CSV_URL + "&cache=" + Date.now());
+    const response = await fetch(CSV_URL + "&t=" + Date.now(), {
+      cache: "no-store"
+    });
+
     const text = await response.text();
 
-    const filas = text.split("\n");
+    universidades.forEach((nombre, i) => {
+      const fila = text
+        .split(/\r?\n/)
+        .find(linea => linea.includes(nombre));
 
-    const universidadesPermitidas = [
-      "Universidad Central del Ecuador",
-      "Universidad Politécnica Salesiana",
-      "Pontificia Universidad Católica",
-      "Universidad Técnica Particular de Loja",
-      "Universidad Técnica de Cotopaxi",
-      "Universidad Técnica de Manabí",
-      "Universidad de Especialidades Espíritu Santo",
-      "Universidad Estatal de Bolívar"
-    ];
+      if (fila) {
+        const c = fila.split(",");
 
-    let data = [];
-
-    filas.forEach(fila => {
-      const c = fila.split(",");
-      const universidad = c[0]?.trim();
-
-      if (universidadesPermitidas.includes(universidad)) {
-        data.push({
-          universidad,
-          asignados: numero(c[1]),
-          subidos: numero(c[2]),
-          aprobados: numero(c[3]),
-          devueltos: numero(c[4]),
+        data[i] = {
+          universidad: nombre,
           falso: numero(c[5]),
           enganoso: numero(c[6]),
-          verdadero: numero(c[7]),
-          satira: numero(c[8]),
-          inverificable: numero(c[9])
-        });
+          impreciso: numero(c[7]),
+          cierto: numero(c[8]),
+          satira: numero(c[9]),
+          inverificable: numero(c[10])
+        };
       }
     });
 
-    pintar(data);
-
-  } catch (error) {
-    console.error("Error cargando datos:", error);
+  } catch (e) {
+    console.error("No se pudo leer el Sheet:", e);
   }
+
+  pintar(data);
 }
 
 function numero(valor) {
-  const n = parseInt(valor);
+  const n = parseInt(String(valor || "").replaceAll('"', "").trim(), 10);
   return isNaN(n) ? 0 : n;
 }
 
+function poner(id, valor) {
+  const el = document.getElementById(id);
+  if (el) el.innerText = valor;
+}
+
 function pintar(data) {
-  let subidos = 0;
-  let aprobados = 0;
-  let pendientes = 0;
-  let falsos = 0;
-  let enganosos = 0;
-  let verdaderos = 0;
-  let satiras = 0;
-  let inverificables = 0;
-
-  data.forEach(u => {
-    subidos += u.subidos;
-    aprobados += u.aprobados;
-    pendientes += Math.max(u.asignados - u.aprobados, 0);
-
-    falsos += u.falso;
-    enganosos += u.enganoso;
-    verdaderos += u.verdadero;
-    satiras += u.satira;
-    inverificables += u.inverificable;
-  });
-
-  document.getElementById("subidos").innerText = subidos;
-  document.getElementById("aprobados").innerText = aprobados;
-  document.getElementById("pendientes").innerText = pendientes;
-  document.getElementById("universidades").innerText = data.length;
-
-  document.getElementById("falsos").innerText = falsos;
-  document.getElementById("enganosos").innerText = enganosos;
-  document.getElementById("verdaderos").innerText = verdaderos;
-  document.getElementById("satiras").innerText = satiras;
-  document.getElementById("inverificables").innerText = inverificables;
+  poner("falsos", data.reduce((s,u) => s + u.falso, 0));
+  poner("enganosos", data.reduce((s,u) => s + u.enganoso, 0));
+  poner("imprecisos", data.reduce((s,u) => s + u.impreciso, 0));
+  poner("verdaderos", data.reduce((s,u) => s + u.cierto, 0));
+  poner("satiras", data.reduce((s,u) => s + u.satira, 0));
+  poner("inverificables", data.reduce((s,u) => s + u.inverificable, 0));
 
   const cards = document.getElementById("cards");
+  if (!cards) return;
+
   cards.innerHTML = "";
 
   data.forEach(u => {
     cards.innerHTML += `
       <div class="card">
         <h2>${u.universidad}</h2>
-
         <hr>
-
         <p>🔴 Falso: <strong>${u.falso}</strong></p>
         <p>🟠 Engañoso: <strong>${u.enganoso}</strong></p>
-        <p>🟢 Verdadero: <strong>${u.verdadero}</strong></p>
+        <p>🟡 Impreciso: <strong>${u.impreciso}</strong></p>
+        <p>🟢 Cierto: <strong>${u.cierto}</strong></p>
         <p>🟣 Sátira: <strong>${u.satira}</strong></p>
         <p>⚫ Inverificable: <strong>${u.inverificable}</strong></p>
       </div>
@@ -107,5 +97,4 @@ function pintar(data) {
 }
 
 cargarDatos();
-
-setInterval(cargarDatos, 5000);
+setInterval(cargarDatos, 10000);
