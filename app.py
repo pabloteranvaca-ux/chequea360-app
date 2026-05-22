@@ -13,6 +13,12 @@ st.set_page_config(
     page_icon="favicon.png",
     layout="wide"
 )
+params = st.query_params
+
+modo_embed = (
+    params.get("embed")
+    == "1"
+)
 
 # =========================================================
 # HELPERS
@@ -338,33 +344,36 @@ st.markdown("""
 # HEADER
 # =========================================================
 
-col_logo, col_text = st.columns([1, 3])
+if not modo_embed:
 
-with col_logo:
-    st.image("logo.png", width=260)
+    col_logo, col_text = st.columns([1, 3])
 
-with col_text:
-    header_html = (
-        '<div class="header-box">'
-        '<div class="header-title">Chequea360</div>'
-        '<div class="header-subtitle">'
-        'Chequea360 es una plataforma de inteligencia informativa que integra inteligencia artificial, '
-        'la API Data360 del Banco Mundial, metodologías periodísticas de verificación de datos y procesos '
-        'de capacitación y alfabetización en datos a través de ChequeaLab.<br><br>'
-        'Su objetivo es permitir que periodistas, investigadores y ciudadanos '
-        'puedan consultar, interpretar y validar datos de desarrollo en tiempo real.'
-        '</div>'
-        '<div class="badge">10 años chequeando · Periodismo con rigor · Datos verificables</div>'
-        '</div>'
-    )
+    with col_logo:
+        st.image("logo.png", width=260)
 
-    st.markdown(header_html, unsafe_allow_html=True)
+    with col_text:
+        header_html = (
+            '<div class="header-box">'
+            '<div class="header-title">Chequea360</div>'
+            '<div class="header-subtitle">'
+            'Chequea360 es una plataforma de inteligencia informativa que integra inteligencia artificial, '
+            'la API Data360 del Banco Mundial, metodologías periodísticas de verificación de datos y procesos '
+            'de capacitación y alfabetización en datos a través de ChequeaLab.<br><br>'
+            'Su objetivo es permitir que periodistas, investigadores y ciudadanos '
+            'puedan consultar, interpretar y validar datos de desarrollo en tiempo real.'
+            '</div>'
+            '<div class="badge">10 años chequeando · Periodismo con rigor · Datos verificables</div>'
+            '</div>'
+        )
 
+        st.markdown(header_html, unsafe_allow_html=True)
 # =========================================================
 # INTRO
 # =========================================================
 
-st.markdown("""
+if not modo_embed:
+
+    st.markdown("""
 <div class="card">
 
 <p style="margin:0; font-size:1.05rem; font-weight:700; color:#1f1f1f;">
@@ -381,7 +390,6 @@ Chequea360 permite buscar, comparar e interpretar datos oficiales del Banco Mund
 
 </div>
 """, unsafe_allow_html=True)
-
 # =========================================================
 # INPUT
 # =========================================================
@@ -604,17 +612,22 @@ def mostrar_compartir(question):
     pregunta = question.strip()
 
     share_url = (
-        base_url
-        + "?q="
-        + urllib.parse.quote(pregunta)
-    )
+    base_url
+    + "/?q="
+    + urllib.parse.quote(pregunta)
+    + "&embed=1"
+)
 
     embed_code = f"""
 <iframe
 src="{share_url}"
 width="100%"
-height="700"
-style="border:0;border-radius:18px;">
+height="640"
+style="
+border:0;
+border-radius:16px;
+background:white;
+overflow:hidden;">
 </iframe>
 """
 
@@ -985,7 +998,9 @@ if submitted:
                     </div>
                     """, unsafe_allow_html=True)
 
-st.markdown("""
+if not modo_embed:
+
+    st.markdown("""
 <div class="footer">
 Chequea360 · Ecuador Chequea · ChequeaLab · Datos oficiales del Banco Mundial
 </div>
