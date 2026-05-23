@@ -2,6 +2,7 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 import requests
+import unicodedata
 from data360_client import get_indicator_metadata, render_trace_card
 
 # =========================================================
