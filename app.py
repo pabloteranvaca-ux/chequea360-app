@@ -1034,17 +1034,15 @@ if submitted:
                     with st.expander(L["data"]):
                         st.dataframe(final_df)
 
-                with col2:
-                    countries_text = ", ".join([country["name"] for country in selected_countries])
-
-                                    st.markdown(
-                        render_trace_card(
-                            indicator_code=selected_indicator["code"],
-                            countries=["Ranking global — todos los países"],
-                            lang=lang
-                        ),
-                        unsafe_allow_html=True
-                    )
+            with col2:
+    st.markdown(
+        render_trace_card(
+            indicator_code=selected_indicator["code"],
+            countries=["Ranking global — todos los países"],
+            lang=lang
+        ),
+        unsafe_allow_html=True
+    )
 
 if not modo_embed:
 
