@@ -96,38 +96,89 @@ def fetch_worldbank_countries():
 
 @st.cache_data(ttl=3600)
 def fetch_global_ranking(indicator_code):
-    countries = fetch_worldbank_countries()
-    rows = []
+    """
+    Obtiene ranking global usando una sola llamada a la API WDI.
+    Mucho más rápido que la versión anterior (1 llamada vs ~200).
+    """
+    url = f"https://api.worldbank.org/v2/country/all/indicator/{indicator_code}"
 
-    for country in countries:
-        df = fetch_worldbank_data(country["code"], indicator_code)
+    params = {
+        "format": "json",
+        "per_page": 500,
+        "mrv": 1,
+    }
 
-        if not df.empty:
-            latest = df.iloc[-1]
+    try:
+        response = requests.get(
+            url,
+            params=params,
+            timeout=30
+        )
+
+        data = response.json()
+
+        if (
+            not isinstance(data, list)
+            or len(data) < 2
+        ):
+            return pd.DataFrame()
+
+        rows = []
+
+        for item in data[1]:
+
+            if item.get("value") is None:
+                continue
+
+            country_id = item.get(
+                "countryiso3code",
+                ""
+            )
+
+            if (
+                not country_id
+                or len(country_id) != 3
+            ):
+                continue
 
             try:
-                value = float(latest["value"])
-                year = int(latest["year"])
-
                 rows.append({
-                    "country": country["name"],
-                    "code": country["code"],
-                    "year": year,
-                    "value": value
+                    "country": item["country"]["value"],
+                    "code": country_id,
+                    "year": int(
+                        item.get("date", 0)
+                    ),
+                    "value": float(
+                        item["value"]
+                    ),
                 })
 
             except Exception:
                 pass
 
-    ranking_df = pd.DataFrame(rows)
+        if not rows:
+            return pd.DataFrame()
 
-    if ranking_df.empty:
+        ranking_df = pd.DataFrame(rows)
+
+        ranking_df = ranking_df.sort_values(
+            "value",
+            ascending=False
+        )
+
+        ranking_df.insert(
+            0,
+            "rank",
+            range(
+                1,
+                len(ranking_df) + 1
+            )
+        )
+
         return ranking_df
 
-    ranking_df = ranking_df.sort_values("value", ascending=False)
-    ranking_df.insert(0, "rank", range(1, len(ranking_df) + 1))
-
-    return ranking_df
+    except Exception:
+        return pd.DataFrame()
 
 
 def build_country_aliases():
